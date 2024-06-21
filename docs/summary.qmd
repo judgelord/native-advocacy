@@ -1,0 +1,110 @@
+---
+title: "Native Comments"
+editor: source
+format:
+# pdf: default
+ html:
+   toc: true
+   toc-location: left
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+```{r setup}
+library(tidyverse)
+
+
+# Table formatting
+library(kableExtra)
+kablebox <- . %>%
+  slice_head(n = 100) %>%
+  knitr::kable() %>%
+  kable_styling() %>%
+  scroll_box(height = "400px")
+
+
+# load data
+load(here::here("data", "native_org_comments.rdata"))
+d<- native_org_comments
+```
+
+# Comments from native organizations 
+
+`r d |> nrow()` commments from `r d$Name |> unique() |> length()` distinct native organizations (mostly Federally Recognized Tribes) on `r d$docket_id |> unique() |> length()` rulemaking dockets from `r d$agency_acronym |> unique() |> length()` different agencies.
+ 
+```{r}
+#| tbl-cap: "Comments by Organization Type"
+#| tbl-cap-location: top
+d |> add_count(Type, name = "Comments") |> 
+  distinct(Type, Name, Comments) |> count(Type, Comments, sort = T, name = "Organizations") |> 
+  kablebox()
+```
+
+```{r}
+#| tbl-cap: "Comments per Organization"
+#| tbl-cap-location: top
+d |> count(Name, Type, name = "Comments", sort = T) |>
+  kablebox()
+```
+
+
+
+
+```{r}
+#| tbl-cap: "Example comments"
+#| tbl-cap-location: top
+d |> mutate(url = paste("https://www.regulations.gov/comment/FINCEN-2009-0002-0030", document_id)) |> select(Name, docket_title, url) |> 
+  kablebox()
+```
+
+
+
+# By agency
+
+```{r}
+#| fig-height: 12
+
+d |> 
+  count(agency_acronym) |>
+  ggplot() + 
+  aes(y = reorder(agency_acronym, n, mean), x = n) + 
+  geom_col() 
+```
+
+
+```{r}
+d |> count(Name, agency_acronym, sort = T) |>
+  kablebox()
+
+counts <- d |> add_count(agency_acronym, name = "per_agency") |>
+  add_count(Name = "per_tribe") 
+
+top_agencies <- count(d, agency_acronym) |> slice_max(n, n = 5) |> pull(agency_acronym)
+
+top_tribes <- count(d, Name) |> slice_max(n, n = 20) |> pull(Name)
+
+d |> filter(Name %in% top_tribes,
+            agency_acronym %in% top_agencies) |>
+  count(Name, agency_acronym, sort = T) |>
+  ggplot() + 
+  aes(y = Name, x = agency_acronym, alpha = n) + 
+  geom_tile() + 
+  labs(alpha = "Coments", 
+       x = "", 
+       y = "") + theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.ticks.length = unit(0, "pt"),
+      #legend.position = "none",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(),
+      plot.margin = unit(c(0,0,0,0), "mm"),
+      panel.spacing = unit(c(0,0,0,0), "mm")
+    )
+```
+
