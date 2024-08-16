@@ -6,8 +6,12 @@ gs4_auth(email = "devin.jl@gmail.com")
 # read from google sheet (requires authorization)
 native_groups_raw <- read_sheet("1crWSexVnc1979ob5ql3_xATpF3K9f5Z7XpZ4QpaTe3Y")
 
+# save a csv version as a backup
 write_csv(native_groups_raw, file = here("data", "native_groups_raw.csv"))
 
+# Load data from csv
+# (this allows the script to run even if it fails to update from the google sheet.)
+# (However, if the sheet is not updated above, matches will be based on the last saved version)
 native_groups_raw <- read_csv(here("data", "native_groups_raw.csv"))
 
 # split out to one obs per moniker
@@ -149,6 +153,7 @@ if(!exists("comment_metadata")){
   here::here("data", "comment_metadata.rdata") |>
     str_replace("University of Michigan Dropbox/Devin Judge-Lord/native-advocacy", "rulemaking") |>
     load()
+
 }
 
 # format for merging
@@ -186,7 +191,11 @@ native_org_comments %>% arrange(docket_id) %>%
 
 # COMMENTERS
 # create a list of matched orgs, with a count of comments per organization
-native_org_commenters <- native_org_comments %>% add_count(Name, name = "n_comments") %>% distinct(organization, `Strings`, Name, n_comments ) %>% arrange(-n_comments)
+native_org_commenters <- native_org_comments %>% add_count(Name, name = "n_comments") %>%
+  distinct(organization, `Strings`, Name, n_comments ) %>%
+  arrange(organization) %>%
+  arrange(-n_comments)
+
 
 native_org_commenters |> kablebox()
 
@@ -205,11 +214,21 @@ sheet_write("1HqI6MSMxCeMdcmrhivFlSmzeazpD-ioTjWcoa3GH4Fk",
 ########################
 # OTHER CANDIDATE ORGS #
 ########################
-search <- "\\btribe|\\btribal\\b|\\breservation|rancheria|band of|american indian|indians|indigenous|first nation|hawai.i|\\bnative|pueblo|apache|mowhawk|ponca trib|paiute|shoshone|\\bbarona\\b|\\bviejas\\b"
+search <- "\\btribe|\\btribal\\b|\\breservation|rancheria|band of|american indian|indians|indigenous|first nation\\b|first nations|hawai.i|\\bnative |pueblo|apache|mowhawk|ponca trib|paiute|shoshone|\\bbarona\\b|\\bviejas\\b|Tlingit|\\bChickamauga|\\bChumash|\\bCostanoan|\\bCoastanoan|\\bOhlone|\\bMiwok|\\bMiwuk|\\bMe-wuk Gabrieleño|\\bGabrieliño|\\bWintu|\\bOhlone|\\bYokuts|\\bMaidu|\\bPaiute|\\bWintu|\\bWintoon|\\bMohegan|\\bNipmuc|\\bNipmuck|\\bPequot|\\bSeminole|\\bShawnee|\\bApalachee|\\bWampanoag|\\bAbenaki|\\bOjibwe|\\bOjibway|\\bLenape|\\bPocasset|\\bPokanoket|\\bSioux|\\bTaino|\\bJibaro|\\bNaguake|\\bJatibonicu|\\bAha Moku|\\bMalama|\\bChippewa"
 
-unmatched <- orgs %>% filter(str_dct(organization_clean, search),
-                         !organization_clean %in% native_org_comments$organization_clean)%>%
+remove <- "indians in america|band of mercy|coastal reservation league|drive tribe|native plant|native nursery|native seed|native floral|native flower|native earth|native forest|native nursery|native specialties |native fish|native ecos|native wild|native produc|native offerings|native selection|native english"
+
+unmatched <- orgs %>% filter(
+  # get observations that match search
+  str_dct(organization_clean, search),
+  # remove ones already matched
+  !organization_clean %in% native_org_comments$organization_clean,
+  # remove ones we don't want
+  !str_dct(organization_clean, remove)
+  ) %>%
   distinct(organization_clean)
+
+unmatched |> kablebox()
 
 save(unmatched,
      file = here::here("data", "unmatched_commenters.rdata"))
@@ -225,6 +244,10 @@ sheet_write(unmatched, "1HqI6MSMxCeMdcmrhivFlSmzeazpD-ioTjWcoa3GH4Fk",
 ###################################
 if(!exists("nonprofit_resources")){
 load("~/University of Michigan Dropbox/Devin Judge-Lord/FINREGRULEMAKE2/finreg/data/nonprofit_resources_clean.Rdata")
+
+  nonprofit_resources %<>% select(-any_of(c("Commented", "n", "score", "mean_assets", "median_assets", "mean_revenue")))
+
+  nonprofit_resources %<>% rename(commented_on_Dodd_Frank = commented)
 }
 
 names(nonprofit_resources)
@@ -254,7 +277,7 @@ matched_ngos %<>%
   group_by(organization_clean) %>%
   mutate(string = paste(string, sep = ";;;")) %>%
   ungroup() %>%
-  select(name, organization_clean, SUBSECTION, string, Name, everything())
+  select(name, organization_clean, SUBSECTION, string, Name, assets, revenue, everything())
 
 # names that matched multiple strings
 matched_ngos |> filter(str_detect(string, "\\|")) |> kablebox()
@@ -275,9 +298,15 @@ sheet_write(matched_ngos, "1HqI6MSMxCeMdcmrhivFlSmzeazpD-ioTjWcoa3GH4Fk",
 # subset to nonprofits that DID NOT match a native group, but fit broader search pattern
 unmatched_ngos <- nonprofit_resources %>%
   filter(str_dct(organization_clean, search),
-         !organization_clean %in% matched_ngos$organization_clean) %>%
+         # remove ones that matched
+         !organization_clean %in% matched_ngos$organization_clean,
+         # remove ones we don't want
+         !str_dct(organization_clean, remove)
+         ) %>%
   distinct() %>%
   select(name, organization_clean, SUBSECTION, everything())
+
+unmatched_ngos %<>% select(-string)
 
 unmatched_ngos |> kablebox()
 
