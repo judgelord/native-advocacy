@@ -90,6 +90,13 @@ native_group_strings <- paste0("\\b",
 
 native_group_strings |> str_sub(0, 5000)
 
+# check for problem specials
+native_group_strings |> str_dct("\\)|\\(")
+
+
+# save
+save(here::here("data", "native_group_strings.rda"))
+
 #########
 # load commentorg metadata from rulemaking reopo
 here::here("data", "comment_metadata_orgs.rdata") |>
@@ -104,8 +111,6 @@ orgs <- comment_metadata_orgs %>%
            clean() %>%
            str_squish())
 
-# check for problem specials
-native_group_strings |> str_dct("\\)|\\(")
 
 orgs %>% head(100)
 
@@ -215,6 +220,12 @@ sheet_write("1HqI6MSMxCeMdcmrhivFlSmzeazpD-ioTjWcoa3GH4Fk",
 # OTHER CANDIDATE ORGS #
 ########################
 search <- "\\btribe|\\btribal\\b|\\breservation|rancheria|band of|american indian|indians|indigenous|first nation\\b|first nations|hawai.i|\\bnative |pueblo|apache|mowhawk|ponca trib|paiute|shoshone|\\bbarona\\b|\\bviejas\\b|Tlingit|\\bChickamauga|\\bChumash|\\bCostanoan|\\bCoastanoan|\\bOhlone|\\bMiwok|\\bMiwuk|\\bMe-wuk Gabrieleño|\\bGabrieliño|\\bWintu|\\bOhlone|\\bYokuts|\\bMaidu|\\bPaiute|\\bWintu|\\bWintoon|\\bMohegan|\\bNipmuc|\\bNipmuck|\\bPequot|\\bSeminole|\\bShawnee|\\bApalachee|\\bWampanoag|\\bAbenaki|\\bOjibwe|\\bOjibway|\\bLenape|\\bPocasset|\\bPokanoket|\\bSioux|\\bTaino|\\bJibaro|\\bNaguake|\\bJatibonicu|\\bAha Moku|\\bMalama|\\bChippewa"
+
+more_search <-
+  c("Cahuilla, Pomo\\b, pomos\\b, Diegueno mission, Kickapoo, Luiseno, Arapaho, Potawatomi, Pottawatomi, Paskenta, Ponca, Sac & Fox, Sac and Fox, Goshute, Ute\\b, Munsee, Muskogee, Tuscarora, Keetoowah, Mattaponi, Washoe, Yavapai, Chignik, Inupiat, Paugussett, Schaghticoke, Nanticoke, Biloxi, Chitimacha, Piscataway, Powhatan, Waccamaw, Pee Dee, Mattaponi, Nottoway, Absentee, Amonsoquath, Unami, Binay, Chicora, Siouan, Chilkoot, Chiricahua, Pembina, Umpqua, Chukchansi, S.Klallam, Metis, Clatsop, Nehalem, Comanche, Elem\\b, Echota, Edisto, Esselen, Kispoko, Lipan, Saponi, Narragansett, Tsalagi, Miccosukee, Pennacook, Yuchi, Euchee, Salinan, Santee, Talimali, Tanasi, Tolowa, Tuolumne, Wyandot, Yamassee, Cherokee") %>%
+  str_replace_all(", ", "|\\\\b") %>% tolower()
+
+search <-  paste(search, more_search, sep = "|")
 
 remove <- "indians in america|band of mercy|coastal reservation league|drive tribe|native plant|native nursery|native seed|native floral|native flower|native earth|native forest|native nursery|native specialties |native fish|native ecos|native wild|native produc|native offerings|native selection|native english"
 
